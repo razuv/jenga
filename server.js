@@ -5,7 +5,7 @@ import {Server} from 'socket.io';
 import {Game} from './src/game.js';
 import {MEMES} from './src/memes.js';
 function shuffleAvatars(){const ids=MEMES.map(m=>m.id);for(let i=ids.length-1;i>0;i--){const j=randomInt(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;}
-const app=express(),http=createServer(app),io=new Server(http,{maxHttpBufferSize:8192});
+const app=express(),http=createServer(app),io=new Server(http,{maxHttpBufferSize:8192,...(process.env.CLIENT_ORIGIN?{cors:{origin:process.env.CLIENT_ORIGIN}}:{})});
 const rooms=new Map();
 if(process.env.NODE_ENV==='production')app.use(express.static('dist'));
 else {const {createServer}=await import('vite');const vite=await createServer({server:{middlewareMode:true},appType:'spa'});app.use(vite.middlewares);}

@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {io} from 'socket.io-client';
+import {createSession} from '../src/session.js';
 const wait=(socket,event,predicate=()=>true)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{socket.off(event,handler);reject(new Error(`Timeout: ${event}`));},8000);function handler(value){if(predicate(value)){clearTimeout(timer);socket.off(event,handler);resolve(value);}}socket.on(event,handler);});
 const join=(socket,data)=>new Promise(resolve=>socket.emit('join',data,resolve));
 test('six-player rooms enforce capacity, turns, start and ownership transfer',{timeout:20000},async t=>{
- const child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'0',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});
+ const child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'0',NODE_ENV:'production',CLIENT_ORIGIN:'https://razuv.github.io'},stdio:['ignore','pipe','pipe']});
  t.after(()=>child.kill());
  const [data]=await once(child.stdout,'data');const url=data.toString().match(/http:\/\/localhost:\d+/)?.[0];assert(url);
  const sockets=[];t.after(()=>sockets.forEach(s=>s.disconnect()));
@@ -22,4 +23,14 @@ test('six-player rooms enforce capacity, turns, start and ownership transfer',{t
  host.emit('action',{type:'release'});state=await wait(host,'state',s=>s.moves===1);assert.equal(state.turn,1);assert.equal(state.blocks[30][7],18);
  const nextRoom=wait(guests[0],'room',r=>r.owner===guests[0].id);host.disconnect();assert.equal((await nextRoom).players.length,5);state=await wait(guests[0],'state');assert.equal(state.turn,0);
  assert.match((await join(seventh,{code:room.code})).error,/началась/);
+ const cors=await fetch(`${url}/socket.io/?EIO=4&transport=polling`,{headers:{Origin:'https://razuv.github.io'}});
+ assert.equal(cors.headers.get('access-control-allow-origin'),'https://razuv.github.io');
+ const adapted=createSession({serverURL:url});t.after(()=>adapted.disconnect());
+ const adaptedRoom=new Promise(resolve=>adapted.on('room',r=>{if(!r.local)resolve(r);}));
+ assert((await new Promise(resolve=>adapted.emit('join',{local:false,name:'Pages'},resolve))).ok);
+ assert.equal((await adaptedRoom).owner,adapted.id);
+ const localRoom=new Promise(resolve=>adapted.on('room',r=>{if(r.local)resolve(r);}));
+ assert((await new Promise(resolve=>adapted.emit('join',{local:true,count:3},resolve))).ok);
+ assert.equal((await localRoom).players.length,3);assert.equal(adapted.id,'local');
+
 });

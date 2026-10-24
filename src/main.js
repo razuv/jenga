@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {io} from 'socket.io-client';
+import {createSession} from './session.js';
 import './style.css';
 import {createSeats} from './seats.js';
 import {MEMES} from './memes.js';
@@ -39,7 +39,7 @@ const table=new THREE.Mesh(new THREE.CylinderGeometry(7.5,7.5,.5,128),new THREE.
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:'#080808',roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-4.5;ground.receiveShadow=true;scene.add(ground);
 for(const x of [-4,4])for(const z of [-4,4]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.18,.13,4,12),table.material);leg.position.set(x,-2.5,z);leg.castShadow=true;scene.add(leg);}
 const seats=createSeats(scene);
-const socket=io({autoConnect:true});let room=null,state=null,mode='local',hover=-1,selected=-1,ended=false,online=false,audio=null,muted=true,rosterKey='',lastJoin=null;
+const socket=createSession();let room=null,state=null,mode='local',hover=-1,selected=-1,ended=false,online=false,audio=null,muted=true,rosterKey='',lastJoin=null;
 const targets=blocks.map(b=>({p:b.position.clone(),q:b.quaternion.clone()}));
 function sound(freq=220){if(muted)return;try{audio||=new AudioContext();audio.resume();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='sine';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(70,audio.currentTime+.13);gain.gain.setValueAtTime(.08,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.15);osc.connect(gain).connect(audio.destination);osc.start();osc.stop(audio.currentTime+.16);}catch{}}
 function canPlay(){return online&&room?.started&&state&&!state.over&&state.cooldown<=.05&&(room.local||room.players[state.turn%room.players.length]?.id===socket.id);}
@@ -63,7 +63,7 @@ socket.on('connect',()=>{
 socket.on('disconnect',()=>{online=false;drag=null;controls.enabled=true;drawUI();});
 socket.on('room',r=>{room=r;lastJoin=r.local?{local:true,count:r.players.length}:{...lastJoin,local:false,code:r.code};drawUI();});
 socket.on('state',s=>{if(!s.over)ended=false;state=s;s.blocks.forEach((b,i)=>{targets[i].p.fromArray(b);targets[i].q.fromArray(b,3);});selected=s.active;drawUI();});
-function join(data){socket.emit('join',data,result=>{if(result.error){$('lobby-error').textContent=result.error;if(!$('lobby').open)$('lobby').showModal();return;}lastJoin=data;$('lobby').close();$('end-dialog').close();});}
+function join(data){socket.emit('join',data,result=>{if(result.error){$('lobby-error').textContent=result.error;if(!$('lobby').open)$('lobby').showModal();return;}online=true;lastJoin=data;$('lobby').close();$('end-dialog').close();});}
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let drag=null;
 function hit(e){pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pointer,camera);return ray.intersectObjects(blocks)[0]?.object.userData.id??-1;}
 function eligible(id){return id>=0&&state&&state.blocks[id][7]<Math.max(...state.blocks.map(b=>b[7]))-1;}
@@ -116,7 +116,7 @@ $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$
 $('settings').onclick=()=>{if(room&&!room.local&&!room.started&&room.owner===socket.id){socket.emit('start');return;}$('lobby-error').textContent='';$('lobby').showModal();};$('close-lobby').onclick=()=>$('lobby').close();
 document.querySelectorAll('[data-mode]').forEach(btn=>btn.onclick=()=>{mode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b===btn));$('count-label').hidden=mode!=='local';$('online-fields').hidden=mode==='local';});
 $('lobby-form').onsubmit=e=>{e.preventDefault();join({local:mode==='local',count:Number($('count').value),name:$('name').value,code:mode==='online'?$('code').value.trim().toUpperCase():''});};
-$('copy-code').onclick=async()=>{try{await navigator.clipboard.writeText(`${location.origin}/?room=${room.code}`);$('copy-code').textContent='Ссылка скопирована';}catch{$('copy-code').textContent=room.code;}};
+$('copy-code').onclick=async()=>{try{await navigator.clipboard.writeText(`${location.origin}${import.meta.env.BASE_URL}?room=${room.code}`);$('copy-code').textContent='Ссылка скопирована';}catch{$('copy-code').textContent=room.code;}};
 function restart(){if(state&&!state.over&&!confirm('Начать новую игру?'))return;socket.emit('reset');$('end-dialog').close();drag=null;controls.enabled=true;}
 $('restart').onclick=restart;$('again').onclick=restart;
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}addEventListener('resize',resize);resize();
