@@ -11,6 +11,6 @@ test('static hosting supports six local players, physics, turns and restart with
  const completed=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Local turn stalled')),8000);session.on('state',s=>{if(s.moves===1){clearTimeout(timer);resolve(s);}});});
  session.emit('action',{type:'pull',value:3.7});session.emit('action',{type:'release'});
  assert.equal((await completed).turn,1);session.emit('reset');assert.equal(state.moves,0);assert.equal(state.turn,0);
- const unavailable=await join(session,{local:false});assert.match(unavailable.error,/недоступны/);
+ const unavailable=await join(session,{local:false,code:'bad'});assert.match(unavailable.error,/8 символов/);
  session.emit('action',{type:'select',id:30});assert.equal(state.active,30);
 });

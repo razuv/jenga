@@ -1,6 +1,6 @@
 import {io} from 'socket.io-client';
 import {MEMES} from './memes.js';
-export function createSession({serverURL=import.meta.env?.VITE_SERVER_URL||(import.meta.env?.VITE_STATIC_HOST==='true'?null:globalThis.location?.origin)}={}){
+export function createSession({serverURL=import.meta.env?.VITE_SERVER_URL}={}){
  const listeners=new Map();let game=null,room=null,remote=null,GameClass=null,tick=0;
  const fire=(event,value)=>{for(const handler of listeners.get(event)||[])handler(value);};
  const snapshot=()=>fire('state',game.snapshot());
@@ -12,7 +12,13 @@ export function createSession({serverURL=import.meta.env?.VITE_SERVER_URL||(impo
   async emit(event,data={},ack=()=>{}){
    if(event==='join'){
     if(data.local===false){
-     if(!serverURL){ack({error:'Онлайн-комнаты пока недоступны. Можно играть на одном компьютере.'});return;}
+     if(!serverURL){
+      try{
+       const {connectP2P}=await import('./p2p.js');const candidate=await connectP2P(data,fire);
+       if(game){game.dispose();game=null;}remote?.removeAllListeners();remote?.disconnect();remote=candidate;
+       ack({ok:true});fire('room',candidate.room);fire('state',candidate.state);
+      }catch(error){ack({error:error.message||'Не удалось подключиться к комнате.'});}return;
+     }
      if(remote){remote.emit(event,data,ack);return;}
      const candidate=io(serverURL,{autoConnect:false,timeout:8000,reconnection:false});
      candidate.once('connect_error',()=>{candidate.disconnect();ack({error:'Не удалось подключиться к серверу. Локальная игра доступна.'});});

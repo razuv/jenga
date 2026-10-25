@@ -7,13 +7,14 @@
     "build": "vite build",
     "test": "node --test",
     "preview": "vite preview --host 127.0.0.1",
-    "build:pages": "VITE_STATIC_HOST=true vite build --base=/jenga/",
+    "build:pages": "vite build --base=/jenga/",
     "start": "node server.js",
     "preview:pages": "vite preview --host 127.0.0.1 --base=/jenga/"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
     "express": "^5.1.0",
+    "peerjs": "^1.5.5",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "three": "^0.180.0",

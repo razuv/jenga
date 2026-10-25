@@ -28,8 +28,7 @@ jobs:
       - name: Build
         run: npm run build -- --base="${{ steps.pages.outputs.base_path }}/"
         env:
-          VITE_STATIC_HOST: 'true'
-          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
+          VITE_ICE_SERVERS: ${{ vars.VITE_ICE_SERVERS }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
